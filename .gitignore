@@ -18,13 +18,18 @@ node_modules/
 apps/grabber/dist/
 apps/grabber/build/
 
+# Service binaries
+apps/*/bin/
+
 # Environment files
 .env
 !.env.example
 
 # Docker volumes data
-data/snapshots/
-data/browser-profile/
+data/snapshots/*
+!data/snapshots/.gitkeep
+data/browser-profile/*
+!data/browser-profile/.gitkeep
 
 # IDE
 .idea/
