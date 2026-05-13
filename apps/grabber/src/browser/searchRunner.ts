@@ -3,6 +3,9 @@ import { logger } from '../logger.js';
 import { extractListingCards, ExtractedCard } from './extractors.js';
 import { detectIntervention } from './context.js';
 
+const PAGE_LOAD_WAIT_MS = 3000;
+const SCROLL_WAIT_MS = 1500;
+
 export interface SearchRunnerOptions {
   query: string;
   searchBaseUrl: string;
@@ -43,12 +46,12 @@ export async function runSearch(
     }
 
     // Wait for page to load content
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(PAGE_LOAD_WAIT_MS);
 
     // Scroll to load more results
     for (let scroll = 0; scroll < options.maxScrolls; scroll++) {
       await page.evaluate(() => window.scrollBy(0, window.innerHeight * 2));
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(SCROLL_WAIT_MS);
 
       // Check for intervention after each scroll
       const interventionAfterScroll = await detectIntervention(page);
