@@ -55,6 +55,11 @@ func New(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+// Ping checks the database connection.
+func (r *Repository) Ping(ctx context.Context) error {
+	return r.pool.Ping(ctx)
+}
+
 // UpsertObservation atomically upserts publisher, listing, listing_observation, and price_observation.
 func (r *Repository) UpsertObservation(ctx context.Context, input UpsertObservationInput) (UpsertObservationResult, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -98,18 +103,23 @@ func (r *Repository) UpsertObservation(ctx context.Context, input UpsertObservat
 }
 
 func upsertPublisher(ctx context.Context, tx pgx.Tx, input UpsertObservationInput) (string, error) {
+	rawJSON, err := json.Marshal(input.RawJSON)
+	if err != nil {
+		rawJSON = []byte("{}")
+	}
+
 	var id string
-	err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO publishers (source, source_publisher_id, display_name, last_seen_at, raw_json)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES ($1, $2, NULLIF($3, ''), $4, $5)
 		ON CONFLICT (source, source_publisher_id)
 		WHERE source_publisher_id IS NOT NULL
 		DO UPDATE SET
-			display_name = COALESCE(EXCLUDED.display_name, publishers.display_name),
+			display_name = COALESCE(NULLIF(EXCLUDED.display_name, ''), publishers.display_name),
 			last_seen_at = EXCLUDED.last_seen_at,
 			updated_at = now()
 		RETURNING id
-	`, input.Source, input.SourcePublisherID, input.PublisherDisplayName, input.ObservedAt, "{}").Scan(&id)
+	`, input.Source, input.SourcePublisherID, input.PublisherDisplayName, input.ObservedAt, rawJSON).Scan(&id)
 	return id, err
 }
 
@@ -142,7 +152,7 @@ func upsertListing(ctx context.Context, tx pgx.Tx, input UpsertObservationInput,
 				source, source_listing_id, publisher_id, canonical_url, canonical_url_hash,
 				title_current, price_current, currency, location_current,
 				first_seen_at, last_seen_at, raw_json
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11)
+			) VALUES ($1, $2, $3, NULLIF($4,''), NULLIF($5,''), $6, $7, NULLIF($8,''), NULLIF($9,''), $10, $10, $11)
 			RETURNING id
 		`, input.Source, input.SourceListingID, publisherIDParam,
 			input.CanonicalURL, canonicalURLHash,
@@ -168,12 +178,13 @@ func upsertListing(ctx context.Context, tx pgx.Tx, input UpsertObservationInput,
 			return result, err
 		}
 
+		// Only treat non-empty incoming values as changes to avoid overwriting
+		// known data with absent/empty fields from the event.
 		changed := oldTitle != input.Title ||
 			(oldPrice == nil && input.PriceAmount != nil) ||
 			(oldPrice != nil && input.PriceAmount == nil) ||
 			(oldPrice != nil && input.PriceAmount != nil && *oldPrice != *input.PriceAmount) ||
-			(oldLocation == nil && input.LocationText != "") ||
-			(oldLocation != nil && *oldLocation != input.LocationText)
+			(input.LocationText != "" && (oldLocation == nil || *oldLocation != input.LocationText))
 
 		result.Changed = changed
 
@@ -181,12 +192,12 @@ func upsertListing(ctx context.Context, tx pgx.Tx, input UpsertObservationInput,
 			_, err = tx.Exec(ctx, `
 				UPDATE listings SET
 					publisher_id = COALESCE($1, publisher_id),
-					canonical_url = COALESCE($2, canonical_url),
-					canonical_url_hash = COALESCE($3, canonical_url_hash),
+					canonical_url = COALESCE(NULLIF($2,''), canonical_url),
+					canonical_url_hash = COALESCE(NULLIF($3,''), canonical_url_hash),
 					title_current = $4,
 					price_current = $5,
-					currency = COALESCE($6, currency),
-					location_current = $7,
+					currency = COALESCE(NULLIF($6,''), currency),
+					location_current = COALESCE(NULLIF($7,''), location_current),
 					last_seen_at = $8,
 					updated_at = now(),
 					version = version + 1
@@ -199,12 +210,12 @@ func upsertListing(ctx context.Context, tx pgx.Tx, input UpsertObservationInput,
 			_, err = tx.Exec(ctx, `
 				UPDATE listings SET
 					publisher_id = COALESCE($1, publisher_id),
-					canonical_url = COALESCE($2, canonical_url),
-					canonical_url_hash = COALESCE($3, canonical_url_hash),
+					canonical_url = COALESCE(NULLIF($2,''), canonical_url),
+					canonical_url_hash = COALESCE(NULLIF($3,''), canonical_url_hash),
 					title_current = $4,
 					price_current = $5,
-					currency = COALESCE($6, currency),
-					location_current = $7,
+					currency = COALESCE(NULLIF($6,''), currency),
+					location_current = COALESCE(NULLIF($7,''), location_current),
 					last_seen_at = $8,
 					updated_at = now()
 				WHERE id = $9

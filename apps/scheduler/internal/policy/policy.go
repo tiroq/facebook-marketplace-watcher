@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+// rng is a package-level random source seeded at startup.
+// Using a dedicated source makes the seeding intent explicit and keeps the
+// package independent of the global rand state.
+var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+
 // Policy defines the scheduling policy for a search task.
 type Policy struct {
 	IntervalMinutes   int
@@ -25,7 +30,7 @@ func ShouldRun(now time.Time, p Policy) bool {
 	}
 
 	if p.SkipProbability > 0 {
-		if rand.Float64() < p.SkipProbability {
+		if rng.Float64() < p.SkipProbability {
 			return false
 		}
 	}
@@ -34,13 +39,14 @@ func ShouldRun(now time.Time, p Policy) bool {
 }
 
 // NextDelay returns the next delay duration with jitter applied.
-// The jitter is randomly added between 0 and jitterMinutes.
+// Jitter is randomly added in the range [0, jitterMinutes), so the total
+// delay falls in [intervalMinutes, intervalMinutes+jitterMinutes).
 func NextDelay(intervalMinutes, jitterMinutes int) time.Duration {
 	base := time.Duration(intervalMinutes) * time.Minute
 	if jitterMinutes <= 0 {
 		return base
 	}
-	jitter := time.Duration(rand.Intn(jitterMinutes*60)) * time.Second
+	jitter := time.Duration(rng.Intn(jitterMinutes*60)) * time.Second
 	return base + jitter
 }
 

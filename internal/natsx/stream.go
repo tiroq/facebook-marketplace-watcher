@@ -7,11 +7,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-)
-
-const (
-	StreamName     = "FB_EVENTS"
-	StreamSubjects = "fb.>"
+	"github.com/tiroq/fb-market-watcher/internal/contracts/subjects"
 )
 
 // EnsureStream creates the FB_EVENTS stream if it does not exist.
@@ -23,21 +19,21 @@ func EnsureStream(ctx context.Context, nc *nats.Conn) (jetstream.JetStream, erro
 	}
 
 	_, err = js.CreateStream(ctx, jetstream.StreamConfig{
-		Name:      StreamName,
-		Subjects:  []string{StreamSubjects},
+		Name:      subjects.StreamName,
+		Subjects:  []string{subjects.StreamSubjects},
 		Storage:   jetstream.FileStorage,
 		Retention: jetstream.LimitsPolicy,
 	})
 	if err != nil {
 		var apiErr *jetstream.APIError
 		if errors.As(err, &apiErr) && apiErr.ErrorCode == jetstream.JSErrCodeStreamNameInUse {
-			slog.Info("NATS stream already exists", "stream", StreamName)
+			slog.Info("NATS stream already exists", "stream", subjects.StreamName)
 			return js, nil
 		}
 		return nil, err
 	}
 
-	slog.Info("NATS stream created", "stream", StreamName)
+	slog.Info("NATS stream created", "stream", subjects.StreamName)
 	return js, nil
 }
 

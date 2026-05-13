@@ -52,7 +52,7 @@ docker compose logs --tail=100 grabber
 
 ### Open psql shell
 ```bash
-docker compose exec postgres psql -U postgres -d fb_market_watcher
+docker compose exec postgres psql -U fbwatcher -d fbwatcher
 ```
 
 ### Common queries

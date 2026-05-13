@@ -16,7 +16,10 @@ It is not designed for:
 
 The system does **not** attempt to bypass Facebook's bot detection, CAPTCHA,
 or login requirements. When the grabber encounters a login wall, checkpoint,
-or CAPTCHA, it stops immediately and reports the error via `fb.ops.error`.
+or CAPTCHA, it stops immediately and publishes `fb.search.failed` with an
+appropriate `error_code` (`LOGIN_REQUIRED`, `CHECKPOINT_REQUIRED`, or
+`CAPTCHA_OR_INTERVENTION_REQUIRED`). It also publishes `fb.ops.error` to
+signal the operational failure.
 
 No headless mode tricks, CAPTCHA-solving services, or fingerprint spoofing
 are used or intended.
@@ -40,7 +43,7 @@ The scheduler applies multiple layers of rate limiting to stay well within
 reasonable usage patterns:
 
 - `interval_minutes`: Minimum time between runs (default: 40 minutes)
-- `jitter_minutes`: Random jitter to avoid predictable patterns (default: ±10 minutes)
+- `jitter_minutes`: Random delay added in the range `[0, jitter_minutes)` after each interval
 - `skip_probability`: Probability of skipping a scheduled slot (default: 0.5)
 - `max_runs_per_day`: Hard cap on daily runs per query (default: 3)
 - `active_window_start` / `active_window_end`: Only run during certain hours

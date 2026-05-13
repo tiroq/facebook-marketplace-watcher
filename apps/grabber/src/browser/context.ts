@@ -16,8 +16,7 @@ export async function openPersistentContext(
     viewport: { width: 1280, height: 900 },
     locale: 'en-US',
     timezoneId: 'Asia/Bangkok',
-    args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
-    ignoreDefaultArgs: ['--enable-automation'],
+    args: ['--no-sandbox'],
   });
 
   return context;

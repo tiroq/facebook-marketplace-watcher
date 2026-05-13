@@ -17,7 +17,7 @@ built as a monorepo with Go backend services and a TypeScript browser grabber.
 ### scheduler (Go)
 - Emits `fb.search.requested` events on a configurable schedule
 - Applies skip probability and jitter to behave as a low-frequency personal tool
-- Supports active window (only run during certain hours)
+- Active window logic exists in the `policy` package but is not yet wired to env config (planned)
 - Supports dry-run mode for testing
 
 ### grabber (TypeScript)

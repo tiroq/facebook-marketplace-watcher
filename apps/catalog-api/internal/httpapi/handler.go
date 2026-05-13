@@ -41,6 +41,11 @@ func (h *Handler) handleHealthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleReadyz(w http.ResponseWriter, r *http.Request) {
+	if err := h.repo.Ping(r.Context()); err != nil {
+		slog.Error("readyz: db ping failed", "error", err)
+		writeError(w, http.StatusServiceUnavailable, "db unavailable")
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"ready"}`))

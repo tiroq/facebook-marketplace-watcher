@@ -12,12 +12,11 @@ them, enriches with AI metadata, and surfaces deals through a self-hosted dashbo
 ## Architecture
 
 ```
-┌─────────────┐   NATS subject          ┌──────────────┐
-│  scheduler  │──▶ marketplace.scrape ──▶│   grabber    │
-│  (Go)       │   (trigger job)          │  (Node/PW)   │
+┌─────────────┐   fb.search.requested    ┌──────────────┐
+│  scheduler  │─────────────────────────▶│   grabber    │
+│  (Go)       │                          │  (Node/PW)   │
 └─────────────┘                          └──────┬───────┘
-                                                │ NATS subject
-                                                │ marketplace.card.raw
+                                                │ fb.listing.card.observed
                                                 ▼
                                          ┌──────────────┐
                                          │  catalog-api │
@@ -100,12 +99,12 @@ in `.env` (`DEFAULT_INTERVAL_MINUTES`). To trigger one immediately:
 
 ```bash
 # Via NATS CLI (if installed):
-nats pub marketplace.scrape '{"query":"laptop","locationHint":"Bangkok","maxCards":20}'
+nats pub fb.search.requested '{"query":"laptop","source":"facebook_marketplace","location_hint":"Bangkok","max_cards":20,"max_scrolls":5,"requested_at":"2026-05-13T10:00:00Z","priority":1}'
 
 # Or restart the scheduler with SCHEDULER_DRY_RUN=false and it fires on startup.
 ```
 
-Results appear in the `cards` table in PostgreSQL within seconds.
+Results appear in the `listings` table in PostgreSQL within seconds.
 
 ---
 
@@ -116,13 +115,13 @@ Results appear in the `cards` table in PostgreSQL within seconds.
 1. Open http://localhost:8088
 2. Create a new project → connect to the existing PostgreSQL (host `postgres`,
    port `5432`, credentials from your `.env`).
-3. Browse the `cards` table.
+3. Browse the `listings` and `listing_observations` tables.
 
 ### Metabase (charts & dashboards)
 
 1. Open http://localhost:3000 and complete the first-run wizard.
 2. Connect to PostgreSQL: host `postgres`, port `5432`, credentials from `.env`.
-3. Build questions and dashboards on the `cards` table.
+3. Build questions and dashboards on the `listings` and `listing_observations` tables.
 
 ---
 

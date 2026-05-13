@@ -224,8 +224,9 @@ async function main(): Promise<void> {
 
   logger.info({ subject: subjects.searchRequested }, 'subscribed to search.requested');
 
-  // Process messages one at a time (grabber is sequential by design)
-  const messages = await consumer.consume({ max_messages: 1 });
+  // Process messages one at a time (grabber is sequential by design).
+  // No max_messages limit — run continuously until shutdown.
+  const messages = await consumer.consume();
 
   // Handle graceful shutdown
   process.on('SIGTERM', async () => {
