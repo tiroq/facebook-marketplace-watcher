@@ -84,7 +84,6 @@ services:
     depends_on:
       nats:
         condition: service_healthy
-    network_mode: bridge
     restart: unless-stopped
 
   nocodb:
