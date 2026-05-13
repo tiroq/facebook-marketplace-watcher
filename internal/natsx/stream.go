@@ -32,11 +32,6 @@ func EnsureStream(ctx context.Context, nc *nats.Conn) (jetstream.JetStream, erro
 		var apiErr *jetstream.APIError
 		if errors.As(err, &apiErr) && apiErr.ErrorCode == jetstream.JSErrCodeStreamNameInUse {
 			slog.Info("NATS stream already exists", "stream", StreamName)
-			stream, streamErr := js.Stream(ctx, StreamName)
-			if streamErr != nil {
-				return nil, streamErr
-			}
-			_ = stream
 			return js, nil
 		}
 		return nil, err
