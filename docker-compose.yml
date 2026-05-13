@@ -1,0 +1,123 @@
+services:
+  postgres:
+    image: postgres:16
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fbwatcher} -d ${POSTGRES_DB:-fbwatcher}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nats:
+    image: nats:2
+    command: -js -m 8222
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8222/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  catalog-api:
+    build: ./apps/catalog-api
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NATS_URL: ${NATS_URL}
+      HTTP_ADDR: ${HTTP_ADDR}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
+  scheduler:
+    build: ./apps/scheduler
+    env_file:
+      - .env
+    environment:
+      NATS_URL: ${NATS_URL}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED}
+      SCHEDULER_DRY_RUN: ${SCHEDULER_DRY_RUN}
+      DEFAULT_SEARCH_QUERY: ${DEFAULT_SEARCH_QUERY}
+      DEFAULT_LOCATION_HINT: ${DEFAULT_LOCATION_HINT}
+      DEFAULT_INTERVAL_MINUTES: ${DEFAULT_INTERVAL_MINUTES}
+      DEFAULT_JITTER_MINUTES: ${DEFAULT_JITTER_MINUTES}
+      DEFAULT_SKIP_PROBABILITY: ${DEFAULT_SKIP_PROBABILITY}
+      DEFAULT_MAX_CARDS: ${DEFAULT_MAX_CARDS}
+      DEFAULT_MAX_SCROLLS: ${DEFAULT_MAX_SCROLLS}
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE}
+    depends_on:
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
+  grabber:
+    build: ./apps/grabber
+    env_file:
+      - .env
+    environment:
+      NATS_URL: ${NATS_URL}
+      FB_BROWSER_PROFILE_DIR: ${FB_BROWSER_PROFILE_DIR}
+      FB_HEADLESS: ${FB_HEADLESS}
+      FB_SEARCH_BASE_URL: ${FB_SEARCH_BASE_URL}
+      MAX_CARDS_PER_RUN: ${MAX_CARDS_PER_RUN}
+      MAX_SCROLLS_PER_RUN: ${MAX_SCROLLS_PER_RUN}
+    volumes:
+      - ./data/browser-profile:/browser-profile
+      - ./data/snapshots:/snapshots
+    depends_on:
+      nats:
+        condition: service_healthy
+    network_mode: bridge
+    restart: unless-stopped
+
+  nocodb:
+    image: nocodb/nocodb:latest
+    env_file:
+      - .env
+    environment:
+      NC_DB: "pg://${POSTGRES_USER:-fbwatcher}:${POSTGRES_PASSWORD:-fbwatcher_secret}@postgres:5432?u=${POSTGRES_USER:-fbwatcher}&p=${POSTGRES_PASSWORD:-fbwatcher_secret}&d=${POSTGRES_DB:-fbwatcher}"
+    ports:
+      - "8088:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - metabase-data:/metabase-data
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ${POSTGRES_DB:-fbwatcher}
+      MB_DB_PORT: "5432"
+      MB_DB_USER: ${POSTGRES_USER:-fbwatcher}
+      MB_DB_PASS: ${POSTGRES_PASSWORD:-fbwatcher_secret}
+      MB_DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  metabase-data:

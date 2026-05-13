@@ -1,0 +1,46 @@
+# Go binaries and build artifacts
+bin/
+dist/
+*.exe
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Node.js
+node_modules/
+*.js.map
+!jest.config.js
+!.eslintrc.js
+!prettier.config.js
+
+# TypeScript compiled output
+apps/grabber/dist/
+apps/grabber/build/
+
+# Environment files
+.env
+!.env.example
+
+# Docker volumes data
+data/snapshots/
+data/browser-profile/
+
+# IDE
+.idea/
+.vscode/
+!.vscode/settings.json
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temp
+tmp/
+
+# Logs
+*.log
+npm-debug.log*

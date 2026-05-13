@@ -1,0 +1,107 @@
+version: '3'
+
+tasks:
+  up:
+    desc: Start all services
+    cmds:
+      - docker compose up -d
+
+  down:
+    desc: Stop all services
+    cmds:
+      - docker compose down
+
+  logs:
+    desc: Follow logs from all services
+    cmds:
+      - docker compose logs -f
+
+  ps:
+    desc: Show running services
+    cmds:
+      - docker compose ps
+
+  db:migrate:
+    desc: Run SQL migrations against the Postgres container
+    cmds:
+      - |
+        for f in sql/migrations/*.sql; do
+          echo "Applying $f..."
+          docker compose exec -T postgres psql -U "${POSTGRES_USER:-fbwatcher}" -d "${POSTGRES_DB:-fbwatcher}" -f - < "$f"
+        done
+
+  db:psql:
+    desc: Open interactive psql shell
+    cmds:
+      - docker compose exec postgres psql -U "${POSTGRES_USER:-fbwatcher}" -d "${POSTGRES_DB:-fbwatcher}"
+
+  nats:info:
+    desc: Show NATS server info via monitoring endpoint
+    cmds:
+      - curl -s http://localhost:8222/varz | jq .
+
+  catalog:run:
+    desc: Run catalog-api locally (requires .env)
+    dotenv: ['.env']
+    cmds:
+      - go run ./apps/catalog-api/cmd/catalog-api
+
+  scheduler:run:
+    desc: Run scheduler locally (requires .env)
+    dotenv: ['.env']
+    cmds:
+      - go run ./apps/scheduler/cmd/scheduler
+
+  grabber:install:
+    desc: Install Node dependencies for grabber
+    dir: apps/grabber
+    cmds:
+      - npm install
+
+  grabber:run:
+    desc: Start grabber in dev mode
+    dir: apps/grabber
+    cmds:
+      - npm run dev
+
+  test:
+    desc: Run all tests (Go + grabber)
+    cmds:
+      - task: test:go
+      - task: test:grabber
+
+  test:go:
+    desc: Run all Go tests
+    cmds:
+      - go test ./...
+
+  test:grabber:
+    desc: Run grabber tests
+    dir: apps/grabber
+    cmds:
+      - npm test
+
+  fmt:
+    desc: Format all code (Go + Prettier)
+    cmds:
+      - go fmt ./...
+      - |
+        if [ -f apps/grabber/node_modules/.bin/prettier ]; then
+          apps/grabber/node_modules/.bin/prettier --write "apps/grabber/src/**/*.ts"
+        fi
+
+  lint:
+    desc: Lint all code (Go vet + ESLint)
+    cmds:
+      - go vet ./...
+      - |
+        if [ -f apps/grabber/node_modules/.bin/eslint ]; then
+          apps/grabber/node_modules/.bin/eslint "apps/grabber/src/**/*.ts"
+        fi
+
+  clean:
+    desc: Remove all containers, volumes, and build artifacts
+    cmds:
+      - docker compose down -v
+      - rm -rf bin/ dist/ coverage.out
+      - rm -rf apps/grabber/dist apps/grabber/node_modules
